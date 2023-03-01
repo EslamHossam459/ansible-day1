@@ -1,0 +1,4 @@
+[web]
+
+web1 ansible_host=18.210.142.90 ansible_user=ubuntu ansible_ssh_private_key_file=/ke
+web2 ansible_host=54.208.192.36 ansible_user=ubuntu ansible_ssh_private_key_file=/ke

@@ -1,0 +1,77 @@
+- name: day1
+  hosts: [web]
+  become: true
+
+
+  tasks:
+    - name: public ip
+      command: curl http://169.254.169.254/latest/meta-data/public-ipv4
+      register: ec2_public_ip
+
+    - name: install git
+      apt:
+        name: git
+    - name: github repository
+      git:
+        repo: https://github.com/sabreensalama/Booster_CI_CD_Project.git
+        dest: /home/ubuntu/lab
+        clone: yes
+        force: yes
+        update: true
+
+    - name: ip of app
+      ansible.builtin.lineinfile:
+        path: "{{ path }}/simpleApp/settings.py"
+        regexp: '^ALLOWED_HOSTS '
+        insertafter: '^ALLOWED_HOSTS '
+        line: ALLOWED_HOSTS = ['{{ ec2_public_ip.stdout }}']
+
+    - name: install python
+      apt:
+        name: python3
+        update_cache: true
+
+    - name: Install pip
+      apt:
+        name: 'python3-pip'
+        update_cache: yes
+
+    - name: Install specified Python requirements
+       pip:
+        requirements: "{{ path }}/requirements.txt"
+
+    - name: Make migrations
+      shell: python3 "{{ path }}/manage.py" makemigrations
+
+    - name: Migrate database
+      shell: python3 "{{ path }}/manage.py" migrate
+
+    - name: Run command
+      shell:  python3 "{{ path }}/manage.py" runserver 0.0.0.0:8030 &
+
+- name: play1-install apache
+  become: true
+  hosts: web
+  tasks:
+    - name: install apache2
+      apt:
+        name: apache2
+
+    - name: apache2 listen on port 8090
+      lineinfile: dest=/etc/apache2/ports.conf regexp="^Listen 80" line="Listen 8090" state=present
+      notify:
+        - restart apache2
+
+    - name: apache2 virtualhost on port 8090
+      lineinfile: dest=/etc/apache2/sites-available/000-default.conf regexp="^<VirtualHost \*:80>" line="<VirtualHost *:8090>" state=present
+      notify:
+        - restart apache2
+
+    - name: copy file
+      copy:
+        src: /index.html
+        dest: /var/www/html/
+
+  handlers:
+    - name: restart apache2
+      service: name=apache2 state=restarted
